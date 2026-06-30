@@ -16,6 +16,7 @@ import {
   PRED_CONTRADICTS,
   PRED_CREATED_AT,
   PRED_DESCRIPTION,
+  PRED_ENTITY_TYPE,
   PRED_EVIDENCE_CHUNK,
   PRED_NAME,
   PRED_REL_PREDICATE,
@@ -42,6 +43,7 @@ const mkLink = (source: string, predicate: string, target: string): Link =>
 export function entityToLinks(e: Entity): Link[] {
   const out: Link[] = []
   out.push(mkLink(e.uri, PRED_TYPE, TYPE_ENTITY))
+  out.push(mkLink(e.uri, PRED_ENTITY_TYPE, encodeStringTarget(e.type)))
   out.push(mkLink(e.uri, PRED_NAME, encodeStringTarget(e.name)))
   out.push(mkLink(e.uri, PRED_DESCRIPTION, encodeStringTarget(e.description)))
   for (const a of e.aliases ?? []) out.push(mkLink(e.uri, PRED_ALIAS, encodeStringTarget(a)))

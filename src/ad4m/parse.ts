@@ -17,6 +17,7 @@ import {
   PRED_CONTRADICTS,
   PRED_CREATED_AT,
   PRED_DESCRIPTION,
+  PRED_ENTITY_TYPE,
   PRED_EVIDENCE_CHUNK,
   PRED_NAME,
   PRED_REL_PREDICATE,
@@ -87,13 +88,10 @@ function parseEntity(uri: string, bucket: SubjectLinks): Entity | null {
   const sourceChunkIds = allOf(bucket, PRED_SOURCE_CHUNK)
   const createdAt = Number(decodeStringTarget(firstOf(bucket, PRED_CREATED_AT) ?? '') ?? '0') || 0
   const updatedAt = Number(decodeStringTarget(firstOf(bucket, PRED_UPDATED_AT) ?? '') ?? String(createdAt)) || createdAt
-  // Entity.type isn't recorded explicitly in the same shape — we derive it
-  // from the URI hash key isn't available, so we rely on a downstream
-  // consumer to reset the field if needed. For now, default to 'Unknown'.
-  // (Production callers should write a domain-specific type triple too.)
+  const type = decodeStringTarget(firstOf(bucket, PRED_ENTITY_TYPE) ?? '') ?? 'Unknown'
   return {
     uri,
-    type: 'Unknown',
+    type,
     name,
     description,
     aliases: aliases.length ? aliases : undefined,

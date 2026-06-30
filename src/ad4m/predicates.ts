@@ -13,6 +13,9 @@ export const TYPE_COMMUNITY = `${ADR_NS}Community`
 
 // Common predicates.
 export const PRED_TYPE = `${ADR_NS}type`
+/** Domain-level type for Entity subjects (e.g. 'Person', 'Project'). Stored
+ *  on the wire as `literal:string:` so it round-trips through perspectives. */
+export const PRED_ENTITY_TYPE = `${ADR_NS}entityType`
 export const PRED_NAME = `${ADR_NS}name`
 export const PRED_DESCRIPTION = `${ADR_NS}description`
 export const PRED_ALIAS = `${ADR_NS}alias`

@@ -36,14 +36,18 @@ export function createAd4mFacade(client: Ad4mClient): Ad4mClientFacade {
       await client.perspective.addLinks(perspectiveUuid, links)
     },
     async removeLink(perspectiveUuid, link) {
-      // PerspectiveClient.removeLink expects a LinkExpression — synthesise the minimum shape.
-      const synthetic = {
-        author: '',
-        timestamp: '',
-        data: { source: link.source, predicate: link.predicate, target: link.target },
-        proof: { signature: '', key: '', valid: true }
-      } as unknown as Parameters<typeof client.perspective.removeLink>[1]
-      await client.perspective.removeLink(perspectiveUuid, synthetic)
+      // AD4M's removeLink resolves by signed LinkExpression (with author,
+      // timestamp, proof). Querying for the exact triple first gives us a
+      // real LinkExpression we can hand back to AD4M unchanged. There may
+      // be more than one match (different authors / timestamps); remove
+      // them all.
+      const matches = await client.perspective.queryLinks(
+        perspectiveUuid,
+        { source: link.source, predicate: link.predicate, target: link.target } as never
+      )
+      for (const expr of matches ?? []) {
+        await client.perspective.removeLink(perspectiveUuid, expr)
+      }
     },
     async queryAllLinks(perspectiveUuid) {
       const results = await client.perspective.queryLinks(perspectiveUuid, { source: '', predicate: '', target: '' } as never)

@@ -4,7 +4,7 @@ import { entityToLinks, relationshipToLinks, claimToLinks, communityToLinks } fr
 import type { Claim, Community, Entity, Relationship } from '../types.js'
 
 describe('AD4M serialise + parse round-trip', () => {
-  it('round-trips an Entity (modulo type, which is not stored on the wire)', () => {
+  it('round-trips an Entity fully', () => {
     const e: Entity = {
       uri: 'entity:1',
       type: 'Person',
@@ -20,14 +20,18 @@ describe('AD4M serialise + parse round-trip', () => {
     const parsed = parseLinks(links as any).entities
     expect(parsed).toHaveLength(1)
     const back = parsed[0]
-    expect(back.uri).toBe(e.uri)
-    expect(back.name).toBe(e.name)
-    expect(back.description).toBe(e.description)
-    expect(back.aliases).toEqual(e.aliases)
-    expect(back.assertedBy).toEqual(e.assertedBy)
-    expect(back.sourceChunkIds).toEqual(e.sourceChunkIds)
-    expect(back.createdAt).toBe(e.createdAt)
-    expect(back.updatedAt).toBe(e.updatedAt)
+    expect(back).toEqual(e)
+  })
+
+  it('defaults Entity.type to "Unknown" when entityType predicate is missing', () => {
+    // Synthesise a minimal Entity bucket missing the entityType predicate.
+    const links = [
+      { data: { source: 'entity:1', predicate: 'adr://ad4m-rag/type', target: 'adr://ad4m-rag/Entity' } },
+      { data: { source: 'entity:1', predicate: 'adr://ad4m-rag/name', target: 'literal:string:' + encodeURIComponent('Josh') } },
+      { data: { source: 'entity:1', predicate: 'adr://ad4m-rag/description', target: 'literal:string:' + encodeURIComponent('h') } }
+    ]
+    const parsed = parseLinks(links as any).entities
+    expect(parsed[0].type).toBe('Unknown')
   })
 
   it('round-trips a Relationship', () => {

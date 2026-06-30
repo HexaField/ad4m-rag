@@ -55,6 +55,7 @@ export function createAd4mRag(deps: CreateAd4mRagDeps): Ad4mRag {
 
   const store = createKnowledgeGraphStore({
     sqlite,
+    embeddings: deps.embeddings,
     ad4m: {
       client: deps.ad4mClient,
       privatePerspectiveUuid: deps.privatePerspectiveUuid,

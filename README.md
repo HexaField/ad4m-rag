@@ -19,9 +19,74 @@ Most knowledge graphs are organisation-shaped: a single team owns the graph, dec
 
 ## Status
 
-**Planning.** No implementation yet. The full design is in [PLAN.md](./PLAN.md).
+**Working prototype.** The full design is in [PLAN.md](./PLAN.md). All 13 requirements are implemented; 73 unit tests + 7 live integration tests against a real AD4M executor are green.
 
 The repo is being prototyped under [@hexafield](https://github.com/HexaField) while the architecture settles. The intent is to move it to [@coasys](https://github.com/coasys) once the design is proven.
+
+## Install
+
+```bash
+npm install @hexafield/ad4m-rag
+```
+
+Peer dependencies (you provide):
+
+- `@coasys/ad4m` (≥ 0.13.0-test-8)
+- `@anthropic-ai/sdk` *(optional — only if you use the default LLM client)*
+
+## Usage
+
+```ts
+import {
+  createAd4mRag,
+  createOllamaEmbeddingClient,
+  createAnthropicLlmClient
+} from '@hexafield/ad4m-rag'
+
+const rag = createAd4mRag({
+  sqlitePath: './data/knowledge.db',
+  embeddings: createOllamaEmbeddingClient({ model: 'nomic-embed-text' }),
+  llm: await createAnthropicLlmClient({ apiKey: process.env.ANTHROPIC_API_KEY! }),
+  ad4mClient,                       // your authenticated Ad4mClient
+  privatePerspectiveUuid: '…',      // a perspective you own
+  sharedPerspectiveUuids: ['…']     // optional shared perspectives to read from
+})
+
+await rag.ingest.append({
+  documentId: 'doc-1',
+  text: '…',
+  assertedBy: { did: 'did:key:…' }
+})
+await rag.rebuildCommunities()
+
+const result = await rag.query.query({
+  question: 'What are the themes across this corpus?',
+  mode: 'auto'
+})
+console.log(result.answer, result.citations)
+```
+
+For the MCP tool factory:
+
+```ts
+const tools = rag.mcp.tools() // 9 tools — register with your MCP server
+```
+
+## Testing
+
+Unit tests (no network, no executor):
+
+```bash
+npm test
+```
+
+Live AD4M integration tests (spawns an isolated `ad4m-executor` per test, real Holochain bring-up):
+
+```bash
+AD4M_RAG_INTEGRATION=1 npm run test:integration
+```
+
+The integration harness expects `ad4m-executor` on `PATH` or `AD4M_EXECUTOR` set to the binary path.
 
 ## License
 
