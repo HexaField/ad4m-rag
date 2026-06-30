@@ -3,10 +3,15 @@
 // these Links back into records is handled by ad4m/parse.ts.
 
 import { Link } from '@coasys/ad4m'
-import type { Claim, Community, Entity, Relationship } from '../types.js'
+import { CELL_CLASS_BY_ID } from '@hexafield/hexevent'
+import type { CellAssignment, Claim, Community, Entity, Relationship } from '../types.js'
 import {
   PRED_ALIAS,
   PRED_ASSERTED_BY,
+  PRED_CELL_CONCEPT_IRI,
+  PRED_CELL_FILLER,
+  PRED_CELL_OF_CLAIM,
+  PRED_CELL_SOURCE,
   PRED_CLAIM_ABOUT,
   PRED_CLAIM_STATEMENT,
   PRED_COMMUNITY_LEVEL,
@@ -78,6 +83,33 @@ export function claimToLinks(c: Claim): Link[] {
   for (const s of c.supports ?? []) out.push(mkLink(c.uri, PRED_SUPPORTS, s))
   for (const co of c.contradicts ?? []) out.push(mkLink(c.uri, PRED_CONTRADICTS, co))
   out.push(mkLink(c.uri, PRED_CREATED_AT, encodeStringTarget(String(c.createdAt))))
+  for (const cell of c.cells) {
+    for (const l of cellAssignmentToLinks(cell)) out.push(l)
+  }
+  return out
+}
+
+/**
+ * Translate a CellAssignment into AD4M links. The assignment is its own
+ * subject (a hexevent cell class instance); the parent claim's forward
+ * edge uses the cell IRI as predicate, matching hexevent's `HexEvent`
+ * relationship convention.
+ */
+export function cellAssignmentToLinks(cell: CellAssignment): Link[] {
+  const cellClass = CELL_CLASS_BY_ID[cell.cell]
+  if (!cellClass) throw new Error(`unknown cell id: ${cell.cell}`)
+  const cellIri = cellClass.iri
+  const out: Link[] = []
+  // Forward edge from the claim into the assignment, predicate = cell IRI.
+  out.push(mkLink(cell.claimUri, cellIri, cell.uri))
+  // The assignment subject typed as that cell's class.
+  out.push(mkLink(cell.uri, PRED_TYPE, cellIri))
+  // Back-link for discovery from the assignment.
+  out.push(mkLink(cell.uri, PRED_CELL_OF_CLAIM, cell.claimUri))
+  // Filler + optional conceptIri + source.
+  out.push(mkLink(cell.uri, PRED_CELL_FILLER, encodeStringTarget(cell.filler)))
+  if (cell.conceptIri) out.push(mkLink(cell.uri, PRED_CELL_CONCEPT_IRI, encodeStringTarget(cell.conceptIri)))
+  if (cell.source) out.push(mkLink(cell.uri, PRED_CELL_SOURCE, encodeStringTarget(cell.source)))
   return out
 }
 

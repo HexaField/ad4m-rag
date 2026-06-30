@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   canonicalEntityKey,
+  cellAssignmentUri,
   chunkUri,
   claimUri,
   communityUri,
@@ -67,6 +68,22 @@ describe('chunkUri', () => {
   })
 })
 
+describe('cellAssignmentUri', () => {
+  it('normalises whitespace in the filler', () => {
+    expect(cellAssignmentUri('claim:1', 'who·objective', '  Josh   Field  ')).toBe(
+      cellAssignmentUri('claim:1', 'who·objective', 'Josh Field')
+    )
+  })
+  it('is sensitive to the cell id', () => {
+    expect(cellAssignmentUri('claim:1', 'who·objective', 'Josh')).not.toBe(
+      cellAssignmentUri('claim:1', 'who·subjective', 'Josh')
+    )
+  })
+  it('has the cellassignment: prefix', () => {
+    expect(cellAssignmentUri('claim:1', 'who·objective', 'Josh').startsWith('cellassignment:')).toBe(true)
+  })
+})
+
 describe('uriKind', () => {
   it('inspects the prefix', () => {
     expect(uriKind('entity:abc')).toBe('entity')
@@ -74,6 +91,7 @@ describe('uriKind', () => {
     expect(uriKind('claim:abc')).toBe('claim')
     expect(uriKind('community:abc')).toBe('community')
     expect(uriKind('chunk:abc')).toBe('chunk')
+    expect(uriKind('cellassignment:abc')).toBe('cellassignment')
   })
   it('throws on malformed input', () => {
     expect(() => uriKind('no-colon')).toThrow()

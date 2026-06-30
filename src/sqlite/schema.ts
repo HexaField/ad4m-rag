@@ -1,7 +1,7 @@
 // SQLite schema. Versioned so the local index can be dropped + rebuilt
 // from AD4M on a version bump.
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 export const DDL = [
   `PRAGMA journal_mode = WAL`,
@@ -54,6 +54,20 @@ export const DDL = [
   )`,
   `CREATE INDEX IF NOT EXISTS claims_about ON claims(about)`,
 
+  // 12-cell decomposition of a claim. One row per (claim, cell, filler).
+  `CREATE TABLE IF NOT EXISTS cell_assignments (
+    uri TEXT PRIMARY KEY,
+    claim_uri TEXT NOT NULL,
+    cell TEXT NOT NULL,
+    filler TEXT NOT NULL,
+    concept_iri TEXT,
+    source TEXT,
+    FOREIGN KEY (claim_uri) REFERENCES claims(uri) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS cell_assignments_claim ON cell_assignments(claim_uri)`,
+  `CREATE INDEX IF NOT EXISTS cell_assignments_cell ON cell_assignments(cell)`,
+  `CREATE INDEX IF NOT EXISTS cell_assignments_concept ON cell_assignments(concept_iri)`,
+
   `CREATE TABLE IF NOT EXISTS communities (
     uri TEXT PRIMARY KEY,
     level INTEGER NOT NULL,
@@ -93,7 +107,8 @@ export const DDL = [
   // We create them in TS because the column count depends on the configured
   // embedding dimension at runtime.
 
-  // ── FTS5 over claim statements + entity descriptions ────────────
+  // ── FTS5 over claim statements + entity descriptions + cell fillers ─
   `CREATE VIRTUAL TABLE IF NOT EXISTS entities_fts USING fts5(uri UNINDEXED, name, description, content='entities', content_rowid='rowid')`,
-  `CREATE VIRTUAL TABLE IF NOT EXISTS claims_fts USING fts5(uri UNINDEXED, statement, content='claims', content_rowid='rowid')`
+  `CREATE VIRTUAL TABLE IF NOT EXISTS claims_fts USING fts5(uri UNINDEXED, statement, content='claims', content_rowid='rowid')`,
+  `CREATE VIRTUAL TABLE IF NOT EXISTS cell_assignments_fts USING fts5(uri UNINDEXED, claim_uri UNINDEXED, cell UNINDEXED, filler, content='cell_assignments', content_rowid='rowid')`
 ]

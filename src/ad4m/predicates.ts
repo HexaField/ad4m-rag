@@ -43,6 +43,25 @@ export const PRED_COMMUNITY_PARENT = `${ADR_NS}communityParent`
 export const PRED_COMMUNITY_MEMBER = `${ADR_NS}communityMember`
 export const PRED_COMMUNITY_SUMMARY = `${ADR_NS}communitySummary`
 
+// Cell-assignment-specific (12-cell hexevent decomposition of a Claim).
+//
+// The predicate from a Claim to one of its cell assignments is the cell's
+// own IRI (one of the twelve under hexevent's `CELL_NS`). Each cell
+// assignment is also typed at the AD4M layer with the same cell IRI —
+// matching the hexevent design where the cell IRI doubles as the
+// assignment class's `subjectFlag` and as the `HexEvent` relationship
+// predicate. The structural facts a cell carries (filler, conceptIri,
+// source) are stored under the predicates below.
+export const PRED_CELL_FILLER = `${ADR_NS}cellFiller`
+export const PRED_CELL_CONCEPT_IRI = `${ADR_NS}cellConceptIri`
+export const PRED_CELL_SOURCE = `${ADR_NS}cellSource`
+/**
+ * Marks an assignment URI as belonging to its parent claim. The cell-IRI
+ * link on the claim is the canonical forward edge; this back-link makes
+ * the parent claim discoverable from an assignment without a graph walk.
+ */
+export const PRED_CELL_OF_CLAIM = `${ADR_NS}cellOfClaim`
+
 // Encode an AgentRef DID + optional label into a single literal:string target.
 // Format: `did:method:id[|label]`.
 export function encodeAgentTarget(did: string, label?: string): string {

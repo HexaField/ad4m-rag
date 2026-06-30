@@ -1,11 +1,14 @@
 // Query engine. Two modes (local, global) behind one API. Provenance
 // filters applied at every retrieval step.
 
+import type { CellId } from '@hexafield/hexevent'
 import type { EmbeddingClient } from '../clients/embedding.js'
 import type { LlmClient } from '../clients/llm.js'
 import type { SqliteIndex } from '../sqlite/index.js'
 import type {
+  CellAssignment,
   Citation,
+  Claim,
   Community,
   Entity,
   ProvenanceFilter,
@@ -34,11 +37,32 @@ export interface QueryEngineDeps {
   maxContextTokens?: number
 }
 
+/**
+ * Filter restricting the candidate claim pool by cell content. Each term
+ * constrains a single cell (e.g. `who·objective` ≈ "Josh"). When two or
+ * more terms are present, *all* must match — terms compose by conjunction.
+ */
+export interface CellFilterTerm {
+  cell: CellId
+  /** Substring match (LIKE-style) against the filler. */
+  fillerLike?: string
+  /** Exact-match against the conceptIri. */
+  conceptIri?: string
+}
+
 export interface QueryRequest {
   question: string
   mode?: 'local' | 'global' | 'auto'
   fromAgents?: ProvenanceFilter['fromAgents']
   fromPerspectives?: ProvenanceFilter['fromPerspectives']
+  /**
+   * Cell-aware narrowing applied in local mode. Claims that don't satisfy
+   * every term are excluded; entities are then seeded from the surviving
+   * claims' `about` URIs. When the byCell pool comes up empty, local mode
+   * falls back to the vector-only path so the query never silently returns
+   * "no results" purely because cells are sparse.
+   */
+  byCell?: CellFilterTerm[]
   maxTokens?: number
 }
 
@@ -63,7 +87,12 @@ export function createQueryEngine(deps: QueryEngineDeps): QueryEngine {
 
     let llmCalls = 0
     if (mode === 'local') {
-      const { answer, citations, k, hops } = await runLocal(req.question, filter, req.maxTokens)
+      const { answer, citations, k, hops } = await runLocal(
+        req.question,
+        filter,
+        req.maxTokens,
+        req.byCell
+      )
       llmCalls++
       return {
         answer,
@@ -101,10 +130,30 @@ export function createQueryEngine(deps: QueryEngineDeps): QueryEngine {
   async function runLocal(
     question: string,
     filter: ProvenanceFilter,
-    maxAnswerTokens: number | undefined
+    maxAnswerTokens: number | undefined,
+    byCell: CellFilterTerm[] | undefined
   ): Promise<{ answer: string; citations: Citation[]; k: number; hops: number }> {
     const queryVec = await deps.embeddings.embed(question)
-    const seedEntities = deps.sqlite.vectorSearchEntities(queryVec, localEntityK, filter)
+    // Cell-filtered claim pool seeds the entity set if byCell is supplied.
+    // Falls back to vector seed if the cell pool is empty — partial cell
+    // population is the norm, not an error.
+    let cellMatchedClaims: Claim[] = []
+    let seedEntities: Entity[] = []
+    if (byCell && byCell.length > 0) {
+      cellMatchedClaims = deps.sqlite.listClaimsByCell(byCell, filter)
+      if (cellMatchedClaims.length > 0) {
+        const aboutUris = new Set(cellMatchedClaims.map((c) => c.about))
+        const seeded: Entity[] = []
+        for (const uri of aboutUris) {
+          const e = deps.sqlite.getEntity(uri)
+          if (e) seeded.push(e)
+        }
+        seedEntities = seeded.slice(0, localEntityK)
+      }
+    }
+    if (seedEntities.length === 0) {
+      seedEntities = deps.sqlite.vectorSearchEntities(queryVec, localEntityK, filter)
+    }
     if (seedEntities.length === 0) {
       return {
         answer: 'No relevant entities found in the local knowledge graph.',
@@ -156,8 +205,23 @@ export function createQueryEngine(deps: QueryEngineDeps): QueryEngine {
     for (const e of seedEntities) for (const id of e.sourceChunkIds) evidenceChunkIds.add(id)
     const chunks = deps.sqlite.getChunks([...evidenceChunkIds].slice(0, 8))
 
+    // Surface relevant claims + their cell decomposition. When byCell is
+    // active the matched claims are the canonical set; otherwise we pick
+    // claims about the seed entities so the LLM sees structured context.
+    const claimsForContext: Claim[] =
+      cellMatchedClaims.length > 0
+        ? cellMatchedClaims.slice(0, 12)
+        : pickClaimsForSeeds(deps.sqlite, seedEntities, 12)
+
     // Build prompt context, clipped to budget.
-    const context = buildLocalContext(question, [...visited.values()], allRels, chunks, maxContextTokens)
+    const context = buildLocalContext(
+      question,
+      [...visited.values()],
+      allRels,
+      chunks,
+      claimsForContext,
+      maxContextTokens
+    )
     const answer = await deps.llm.complete({
       system: LOCAL_SYSTEM,
       user: context,
@@ -276,6 +340,7 @@ function buildLocalContext(
   entities: Entity[],
   rels: Relationship[],
   chunks: { id: string; text: string }[],
+  claims: Claim[],
   maxTokens: number
 ): string {
   // Token estimate: chars / 4 (rough). Cap each section.
@@ -295,10 +360,54 @@ function buildLocalContext(
     relLines.push(`- ${src} —[${r.predicate}]→ ${tgt}${r.description ? `: ${r.description}` : ''}`)
     if (relLines.join('\n').length > Math.floor(charBudget / 3)) break
   }
+  const claimLines = claims
+    .map((c) => {
+      const aboutName = entities.find((e) => e.uri === c.about)?.name ?? c.about
+      const cellLines = formatCellsForContext(c.cells)
+      return `- about [${aboutName}]: ${c.statement}${cellLines ? `\n${cellLines}` : ''}`
+    })
+    .join('\n')
   const chunkLines = chunks.map((c) => `[${c.id}] ${c.text}`).join('\n\n')
-  const out = `Question: ${question}\n\nEntities:\n${entityLines}\n\nRelationships:\n${relLines.join('\n') || '(none)'}\n\nEvidence:\n${chunkLines || '(none)'}`
+  const out =
+    `Question: ${question}\n\nEntities:\n${entityLines}\n\nRelationships:\n${relLines.join('\n') || '(none)'}` +
+    `\n\nClaims:\n${claimLines || '(none)'}\n\nEvidence:\n${chunkLines || '(none)'}`
   if (out.length <= charBudget) return out
   return out.slice(0, charBudget)
+}
+
+function formatCellsForContext(cells: CellAssignment[]): string {
+  if (cells.length === 0) return ''
+  // Group cells by their cellId so the prompt reads as a 12-cell tally.
+  const byCell = new Map<CellId, CellAssignment[]>()
+  for (const c of cells) {
+    const arr = byCell.get(c.cell) ?? []
+    arr.push(c)
+    byCell.set(c.cell, arr)
+  }
+  return [...byCell.entries()]
+    .map(([cell, arr]) => {
+      const fillers = arr.map((a) => a.filler).join(' / ')
+      return `    · ${cell}: ${fillers}`
+    })
+    .join('\n')
+}
+
+function pickClaimsForSeeds(sqlite: SqliteIndex, entities: Entity[], limit: number): Claim[] {
+  // Walk seed entity URIs and pull a small set of claims about each.
+  const out: Claim[] = []
+  for (const e of entities) {
+    if (out.length >= limit) break
+    // Cheap proxy: FTS over the entity name turns up its claims often enough
+    // for prompt context. A dedicated by-about lookup could replace this.
+    const candidates = sqlite.ftsSearchClaims(e.name, Math.max(2, Math.ceil(limit / entities.length)))
+    for (const c of candidates) {
+      if (c.about === e.uri) {
+        out.push(c)
+        if (out.length >= limit) break
+      }
+    }
+  }
+  return out
 }
 
 function buildGlobalPartialContext(question: string, community: Community): string {

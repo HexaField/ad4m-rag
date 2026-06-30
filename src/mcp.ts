@@ -35,7 +35,7 @@ export function createMcpToolFactory(deps: McpToolDeps): McpToolFactory {
         {
           name: 'knowledge_query',
           description:
-            'Run a query against the knowledge graph. Mode "local" walks entities; "global" maps over community summaries; "auto" picks based on question shape.',
+            'Run a query against the knowledge graph. Mode "local" walks entities; "global" maps over community summaries; "auto" picks based on question shape. Pass `byCell` to narrow local-mode candidates by hexevent 12-cell decomposition (e.g. who·objective ≈ "Josh").',
           inputSchema: {
             type: 'object',
             properties: {
@@ -50,6 +50,20 @@ export function createMcpToolFactory(deps: McpToolDeps): McpToolFactory {
                 }
               },
               fromPerspectives: { type: 'array', items: { type: 'string' } },
+              byCell: {
+                type: 'array',
+                description:
+                  '12-cell narrowing. Each term constrains a single cell; all terms must match (conjunction). Cell ids: who·subjective, who·objective, what·subjective, what·objective, when·subjective, when·objective, where·subjective, where·objective, why·subjective, why·objective, how·subjective, how·objective.',
+                items: {
+                  type: 'object',
+                  properties: {
+                    cell: { type: 'string' },
+                    fillerLike: { type: 'string' },
+                    conceptIri: { type: 'string' }
+                  },
+                  required: ['cell']
+                }
+              },
               maxTokens: { type: 'integer', minimum: 1 }
             },
             required: ['question']
@@ -63,8 +77,15 @@ export function createMcpToolFactory(deps: McpToolDeps): McpToolFactory {
             const fromPerspectives = Array.isArray(args.fromPerspectives)
               ? (args.fromPerspectives as string[])
               : undefined
+            const byCell = Array.isArray(args.byCell)
+              ? (args.byCell as Array<{ cell: string; fillerLike?: string; conceptIri?: string }>).map((t) => ({
+                  cell: t.cell as import('@hexafield/hexevent').CellId,
+                  fillerLike: t.fillerLike,
+                  conceptIri: t.conceptIri
+                }))
+              : undefined
             const maxTokens = typeof args.maxTokens === 'number' ? args.maxTokens : undefined
-            return await deps.query.query({ question, mode, fromAgents, fromPerspectives, maxTokens })
+            return await deps.query.query({ question, mode, fromAgents, fromPerspectives, byCell, maxTokens })
           }
         },
         {

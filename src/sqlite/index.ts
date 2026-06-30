@@ -9,6 +9,7 @@ import Database, { type Database as Db } from 'better-sqlite3'
 import * as sqliteVec from 'sqlite-vec'
 import type {
   AgentRef,
+  CellAssignment,
   Chunk,
   Claim,
   Community,
@@ -16,6 +17,7 @@ import type {
   ProvenanceFilter,
   Relationship
 } from '../types.js'
+import type { CellId } from '@hexafield/hexevent'
 import { DDL, SCHEMA_VERSION } from './schema.js'
 
 export interface SqliteIndexOptions {
@@ -74,6 +76,21 @@ export interface SqliteIndex {
   allEntityUris(): string[]
   /** All relationships, used by community detection. */
   allRelationships(): Relationship[]
+  /** Cells attached to a claim. */
+  listCellAssignmentsByClaim(claimUri: string): CellAssignment[]
+  /** Cells matching a filter, with provenance scoping applied to the parent claim. */
+  listCellAssignments(filter: {
+    cell?: CellId
+    fillerLike?: string
+    conceptIri?: string
+    fromAgents?: AgentRef[]
+    fromPerspectives?: string[]
+  }): CellAssignment[]
+  /** Claims whose cells match every term in `terms`. Each term constrains a single cell. */
+  listClaimsByCell(
+    terms: ReadonlyArray<{ cell: CellId; fillerLike?: string; conceptIri?: string }>,
+    filter?: ProvenanceFilter
+  ): Claim[]
 
   // ── Embeddings ────────────────────────────────────────────────
   storeEntityEmbedding(uri: string, vector: number[]): void
@@ -102,6 +119,7 @@ export interface SqliteIndex {
   stripChunkRefsFromClaims(chunkIds: string[]): void
   deleteOrphanedEntities(): number
   deleteOrphanedRelationships(): number
+  /** Removes orphan claims AND their cell assignments (cells cascade via FK). */
   deleteOrphanedClaims(): number
 
   // ── Lifecycle ─────────────────────────────────────────────────
@@ -193,6 +211,23 @@ export function createSqliteIndex(opts: SqliteIndexOptions): SqliteIndex {
   `)
   const deleteClaimFtsStmt = db.prepare(`DELETE FROM claims_fts WHERE uri = @uri`)
 
+  const upsertCellStmt = db.prepare(`
+    INSERT INTO cell_assignments (uri, claim_uri, cell, filler, concept_iri, source)
+    VALUES (@uri, @claim_uri, @cell, @filler, @concept_iri, @source)
+    ON CONFLICT(uri) DO UPDATE SET
+      filler = excluded.filler,
+      concept_iri = excluded.concept_iri,
+      source = excluded.source
+  `)
+  const deleteCellByUriStmt = db.prepare(`DELETE FROM cell_assignments WHERE uri = @uri`)
+  const deleteCellsByClaimStmt = db.prepare(`DELETE FROM cell_assignments WHERE claim_uri = @claim_uri`)
+  const upsertCellFtsStmt = db.prepare(`
+    INSERT INTO cell_assignments_fts (rowid, uri, claim_uri, cell, filler)
+    VALUES ((SELECT rowid FROM cell_assignments WHERE uri = @uri), @uri, @claim_uri, @cell, @filler)
+  `)
+  const deleteCellFtsByUriStmt = db.prepare(`DELETE FROM cell_assignments_fts WHERE uri = @uri`)
+  const deleteCellFtsByClaimStmt = db.prepare(`DELETE FROM cell_assignments_fts WHERE claim_uri = @claim_uri`)
+
   function rowToEntity(row: any): Entity {
     return {
       uri: row.uri,
@@ -219,11 +254,28 @@ export function createSqliteIndex(opts: SqliteIndexOptions): SqliteIndex {
       createdAt: row.created_at
     }
   }
+  function rowToCellAssignment(row: any): CellAssignment {
+    return {
+      uri: row.uri,
+      claimUri: row.claim_uri,
+      cell: row.cell,
+      filler: row.filler,
+      conceptIri: row.concept_iri ?? undefined,
+      source: row.source ?? undefined
+    }
+  }
+  function loadCellsForClaim(claimUri: string): CellAssignment[] {
+    const rows = db
+      .prepare(`SELECT * FROM cell_assignments WHERE claim_uri = ? ORDER BY rowid`)
+      .all(claimUri) as any[]
+    return rows.map(rowToCellAssignment)
+  }
   function rowToClaim(row: any): Claim {
     return {
       uri: row.uri,
       about: row.about,
       statement: row.statement,
+      cells: loadCellsForClaim(row.uri),
       evidenceChunkIds: parseIds(row.evidence_chunk_ids),
       assertedBy: parseAgents(row.asserted_by),
       supports: parseIds(row.supports),
@@ -322,6 +374,41 @@ export function createSqliteIndex(opts: SqliteIndexOptions): SqliteIndex {
       })
       if (exists) deleteClaimFtsStmt.run({ uri: claim.uri })
       upsertClaimFtsStmt.run({ uri: claim.uri, statement: claim.statement })
+
+      // Replace the claim's cell set with the incoming one. Identity is by
+      // `uri`, but we wipe-and-reinsert because the cell merge happens above
+      // this layer (see identity.ts:mergeClaim → mergeCells). Cells with the
+      // same URI carry the same filler, so the replacement is idempotent.
+      const incomingUris = new Set(claim.cells.map((c) => c.uri))
+      const currentUris = (
+        db.prepare(`SELECT uri FROM cell_assignments WHERE claim_uri = ?`).all(claim.uri) as {
+          uri: string
+        }[]
+      ).map((r) => r.uri)
+      for (const u of currentUris) {
+        if (!incomingUris.has(u)) {
+          deleteCellByUriStmt.run({ uri: u })
+          deleteCellFtsByUriStmt.run({ uri: u })
+        }
+      }
+      for (const cell of claim.cells) {
+        const wasPresent = currentUris.includes(cell.uri)
+        upsertCellStmt.run({
+          uri: cell.uri,
+          claim_uri: cell.claimUri,
+          cell: cell.cell,
+          filler: cell.filler,
+          concept_iri: cell.conceptIri ?? null,
+          source: cell.source ?? null
+        })
+        if (wasPresent) deleteCellFtsByUriStmt.run({ uri: cell.uri })
+        upsertCellFtsStmt.run({
+          uri: cell.uri,
+          claim_uri: cell.claimUri,
+          cell: cell.cell,
+          filler: cell.filler
+        })
+      }
     },
 
     upsertCommunity(community) {
@@ -409,6 +496,69 @@ export function createSqliteIndex(opts: SqliteIndexOptions): SqliteIndex {
     allRelationships() {
       const rows = db.prepare(`SELECT * FROM relationships`).all() as any[]
       return rows.map(rowToRelationship)
+    },
+
+    listCellAssignmentsByClaim(claimUri) {
+      return loadCellsForClaim(claimUri)
+    },
+
+    listCellAssignments(filter) {
+      const where: string[] = ['1 = 1']
+      const bindings: unknown[] = []
+      if (filter.cell) {
+        where.push('ca.cell = ?')
+        bindings.push(filter.cell)
+      }
+      if (filter.fillerLike) {
+        where.push('ca.filler LIKE ?')
+        bindings.push(`%${filter.fillerLike}%`)
+      }
+      if (filter.conceptIri) {
+        where.push('ca.concept_iri = ?')
+        bindings.push(filter.conceptIri)
+      }
+      const prov = provenanceClause('c.asserted_by', {
+        fromAgents: filter.fromAgents,
+        fromPerspectives: filter.fromPerspectives
+      })
+      // Scope to claims that pass provenance; cells inherit their parent's provenance.
+      const sql = `
+        SELECT ca.* FROM cell_assignments ca
+        JOIN claims c ON c.uri = ca.claim_uri
+        WHERE ${where.join(' AND ')}${prov.sql}
+        ORDER BY ca.rowid
+      `
+      const rows = db.prepare(sql).all(...bindings, ...prov.bindings) as any[]
+      return rows.map(rowToCellAssignment)
+    },
+
+    listClaimsByCell(terms, filter) {
+      if (terms.length === 0) return []
+      const subWhere: string[] = []
+      const bindings: unknown[] = []
+      for (const t of terms) {
+        const clauses: string[] = ['cell = ?']
+        bindings.push(t.cell)
+        if (t.fillerLike) {
+          clauses.push('filler LIKE ?')
+          bindings.push(`%${t.fillerLike}%`)
+        }
+        if (t.conceptIri) {
+          clauses.push('concept_iri = ?')
+          bindings.push(t.conceptIri)
+        }
+        subWhere.push(
+          `EXISTS (SELECT 1 FROM cell_assignments ca WHERE ca.claim_uri = c.uri AND ${clauses.join(' AND ')})`
+        )
+      }
+      const prov = provenanceClause('c.asserted_by', filter)
+      const sql = `
+        SELECT c.* FROM claims c
+        WHERE ${subWhere.join(' AND ')}${prov.sql}
+        ORDER BY c.created_at DESC
+      `
+      const rows = db.prepare(sql).all(...bindings, ...prov.bindings) as any[]
+      return rows.map(rowToClaim)
     },
 
     storeEntityEmbedding(uri, vector) {
@@ -617,6 +767,13 @@ export function createSqliteIndex(opts: SqliteIndexOptions): SqliteIndex {
       const orphans = rows.filter((r) => parseIds(r.evidence_chunk_ids).length === 0).map((r) => r.uri)
       if (orphans.length === 0) return 0
       const placeholders = orphans.map(() => '?').join(', ')
+      for (const uri of orphans) {
+        // FK cascade handles cell_assignments rows; we still need to clean up
+        // the FTS shadow table because FTS5 external-content tables don't
+        // observe foreign-key cascades.
+        deleteCellsByClaimStmt.run({ claim_uri: uri })
+        deleteCellFtsByClaimStmt.run({ claim_uri: uri })
+      }
       db.prepare(`DELETE FROM claims WHERE uri IN (${placeholders})`).run(...orphans)
       for (const uri of orphans) deleteClaimFtsStmt.run({ uri })
       return orphans.length
@@ -627,6 +784,7 @@ export function createSqliteIndex(opts: SqliteIndexOptions): SqliteIndex {
         'entities',
         'relationships',
         'claims',
+        'cell_assignments',
         'communities',
         'chunks',
         'publications',
@@ -636,6 +794,7 @@ export function createSqliteIndex(opts: SqliteIndexOptions): SqliteIndex {
         'vec_communities',
         'entities_fts',
         'claims_fts',
+        'cell_assignments_fts',
         'schema_meta'
       ]
       const tx = db.transaction(() => {

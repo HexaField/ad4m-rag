@@ -5,8 +5,9 @@
 // it's a tunable, see the OpenQuestion in PLAN.md about iterating on
 // extraction quality.
 
+import { ALL_CELL_CLASSES, CELL_CLASS_BY_ID, type CellId } from '@hexafield/hexevent'
 import type { LlmClient } from '../clients/llm.js'
-import type { ExtractionResult } from '../types.js'
+import type { ExtractedCellAssignment, ExtractionResult } from '../types.js'
 
 export interface ExtractorOptions {
   /** Maximum tokens for the extraction response. Default 4096. */
@@ -18,6 +19,10 @@ export interface ExtractorOptions {
   /** Inject domain-specific relation types into the prompt. */
   relationTypes?: string[]
 }
+
+const CELL_VOCABULARY_LINES = ALL_CELL_CLASSES
+  .map((c) => `  - "${c.cellId}" — ${c.label}`)
+  .join('\n')
 
 const DEFAULT_SYSTEM = `You extract a knowledge graph from a passage of text. Return ONLY valid JSON
 matching this shape, with NO surrounding prose:
@@ -36,7 +41,13 @@ matching this shape, with NO surrounding prose:
     }
   ],
   "claims": [
-    { "about": { "type": "<EntityType>", "name": "<name>" }, "statement": "<single factual statement>" }
+    {
+      "about": { "type": "<EntityType>", "name": "<name>" },
+      "statement": "<single factual statement>",
+      "cells": [
+        { "cell": "<cellId>", "filler": "<short noun phrase or value>", "conceptIri": "<optional IRI>", "source": "<optional provenance hint>" }
+      ]
+    }
   ]
 }
 
@@ -46,6 +57,18 @@ Rules:
 - Each entity is mentioned at most once; merge duplicates.
 - weight ∈ [0,1] — 0.5 default, higher when the text emphasises the link.
 - A claim must be a single, verifiable factual statement about its "about" entity.
+
+Cell decomposition:
+Every claim is a description of an event. Decompose it across the 12-cell
+5W1H × subjective/objective ontology. Each "cell" value must be one of:
+${CELL_VOCABULARY_LINES}
+Objective cells carry measurable form (timestamp, named actor, location,
+mechanism). Subjective cells carry felt or intended aspects (motivation,
+urgency, felt manner). Populate only the cells the passage actually
+warrants — leaving a cell out is itself meaningful. Each filler is a
+short noun phrase or value. Aim for 2–6 cells per claim, more if the
+passage is rich.
+
 - Return an empty array if no extractions of a kind are warranted.`
 
 export function createExtractor(llm: LlmClient, opts: ExtractorOptions = {}) {
@@ -135,9 +158,36 @@ export function parseExtractionResponse(raw: string): ExtractionResult {
       )
       .map((c: any) => ({
         about: { type: c.about.type.trim(), name: c.about.name.trim() },
-        statement: c.statement.trim()
+        statement: c.statement.trim(),
+        cells: parseExtractedCells(c.cells)
       }))
   }
+}
+
+/**
+ * Validate cell entries from an LLM response. Drops anything whose
+ * `cell` isn't one of the twelve known cell ids; trims filler/source
+ * strings; passes conceptIri through when present.
+ */
+export function parseExtractedCells(raw: unknown): ExtractedCellAssignment[] {
+  if (!Array.isArray(raw)) return []
+  const out: ExtractedCellAssignment[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const cellRaw = (item as any).cell
+    const fillerRaw = (item as any).filler
+    if (typeof cellRaw !== 'string' || typeof fillerRaw !== 'string') continue
+    const cell = cellRaw.trim() as CellId
+    const filler = fillerRaw.trim()
+    if (!filler) continue
+    if (!CELL_CLASS_BY_ID[cell]) continue
+    const conceptIriRaw = (item as any).conceptIri
+    const sourceRaw = (item as any).source
+    const conceptIri = typeof conceptIriRaw === 'string' && conceptIriRaw.trim() ? conceptIriRaw.trim() : undefined
+    const source = typeof sourceRaw === 'string' && sourceRaw.trim() ? sourceRaw.trim() : undefined
+    out.push({ cell, filler, conceptIri, source })
+  }
+  return out
 }
 
 function stripCodeFences(s: string): string {

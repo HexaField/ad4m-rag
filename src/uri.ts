@@ -8,7 +8,7 @@
 
 import { createHash } from 'node:crypto'
 
-export type UriKind = 'entity' | 'relationship' | 'claim' | 'community' | 'chunk'
+export type UriKind = 'entity' | 'relationship' | 'claim' | 'community' | 'chunk' | 'cellassignment'
 
 const SEP = '|'
 
@@ -47,12 +47,29 @@ export function chunkUri(text: string): string {
   return 'chunk:' + sha256(text)
 }
 
+/**
+ * Canonical key for a CellAssignment. Identity is
+ * (claim URI, cell id, normalised filler). Re-extractions with the same
+ * filler in the same cell of the same claim therefore merge.
+ */
+export function cellAssignmentUri(claimUri: string, cell: string, filler: string): string {
+  const normalised = filler.replace(/\s+/g, ' ').trim()
+  return 'cellassignment:' + sha256(claimUri + SEP + cell + SEP + normalised)
+}
+
 /** Inspect a URI's kind from its prefix. Throws on malformed input. */
 export function uriKind(uri: string): UriKind {
   const colon = uri.indexOf(':')
   if (colon < 0) throw new Error('malformed uri: ' + uri)
   const prefix = uri.slice(0, colon)
-  if (prefix !== 'entity' && prefix !== 'relationship' && prefix !== 'claim' && prefix !== 'community' && prefix !== 'chunk') {
+  if (
+    prefix !== 'entity' &&
+    prefix !== 'relationship' &&
+    prefix !== 'claim' &&
+    prefix !== 'community' &&
+    prefix !== 'chunk' &&
+    prefix !== 'cellassignment'
+  ) {
     throw new Error('unknown uri kind: ' + prefix)
   }
   return prefix

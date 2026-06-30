@@ -206,6 +206,7 @@ describe('KnowledgeGraphStore (mock-AD4M)', () => {
       uri: claimUri(e.uri, 'It uses an event bus.'),
       about: e.uri,
       statement: 'It uses an event bus.',
+      cells: [],
       evidenceChunkIds: [],
       assertedBy: [{ did: 'did:a' }],
       createdAt: 1

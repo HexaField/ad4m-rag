@@ -7,8 +7,10 @@
 // repopulates from AD4M.
 
 import type { Ad4mClient } from '@coasys/ad4m'
+import { CELL_CLASS_BY_IRI } from '@hexafield/hexevent'
 import { createAd4mFacade, type Ad4mClientFacade } from './ad4m/client.js'
 import { parseLinks } from './ad4m/parse.js'
+import { PRED_CELL_OF_CLAIM } from './ad4m/predicates.js'
 import {
   claimToLinks,
   communityToLinks,
@@ -125,8 +127,31 @@ export function createKnowledgeGraphStore(deps: KnowledgeGraphStoreDeps): Knowle
     const runReconcile = async (subjectUri: string): Promise<void> => {
       try {
         const all = await facade.queryAllLinks(shared)
+        // Build a set of subject URIs whose link bucket we need parsed
+        // together: the arrival itself, plus its cell-related neighbours.
+        // A Claim arrival pulls its assignments; an assignment arrival
+        // pulls its parent Claim *and* sibling assignments so the parsed
+        // Claim has its full cell array.
+        const wantedSources = new Set<string>([subjectUri])
         const forSubject = all.filter((l) => l.data.source === subjectUri)
-        const parsed = parseLinks(forSubject)
+        for (const l of forSubject) {
+          if (CELL_CLASS_BY_IRI[l.data.predicate]) {
+            wantedSources.add(l.data.target)
+          }
+        }
+        for (const l of forSubject) {
+          if (l.data.predicate === PRED_CELL_OF_CLAIM) {
+            const claimUri = l.data.target
+            wantedSources.add(claimUri)
+            for (const cl of all) {
+              if (cl.data.source === claimUri && CELL_CLASS_BY_IRI[cl.data.predicate]) {
+                wantedSources.add(cl.data.target)
+              }
+            }
+          }
+        }
+        const relevant = all.filter((l) => wantedSources.has(l.data.source))
+        const parsed = parseLinks(relevant)
         for (const e of parsed.entities) {
           deps.sqlite.upsertEntity(e)
           deps.sqlite.recordPublication(e.uri, shared)

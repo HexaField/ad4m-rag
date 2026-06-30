@@ -49,6 +49,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@hexafield/hexevent": "file:../hexevent",
     "better-sqlite3": "^12.0.0",
     "leiden-ts": "^0.1.0",
     "sqlite-vec": "^0.1.6"
