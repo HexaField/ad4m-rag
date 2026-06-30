@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+.env
+.env.local
+.pnpm-store/
+
+# Local data dirs used by the AD4M backend + sqlite index during dev
+data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

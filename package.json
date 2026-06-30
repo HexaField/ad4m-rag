@@ -1,0 +1,53 @@
+{
+  "name": "@hexafield/ad4m-rag",
+  "version": "0.0.0",
+  "description": "GraphRAG-style knowledge extraction and query, backed by AD4M perspectives.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "PLAN.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "keywords": [
+    "graphrag",
+    "rag",
+    "ad4m",
+    "knowledge-graph",
+    "p2p",
+    "embeddings",
+    "leiden",
+    "holochain"
+  ],
+  "author": "Josh Field",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HexaField/ad4m-rag.git"
+  },
+  "homepage": "https://github.com/HexaField/ad4m-rag",
+  "bugs": {
+    "url": "https://github.com/HexaField/ad4m-rag/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}
