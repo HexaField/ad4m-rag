@@ -25,4 +25,4 @@ The repo is being prototyped under [@hexafield](https://github.com/HexaField) wh
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+[Cryptographic Autonomy License v1.0](./LICENSE) (CAL-1.0) — the same license used by [Holochain](https://github.com/holochain) and [AD4M](https://github.com/coasys/ad4m). The CAL preserves users' rights to access their own data and cryptographic keys when the Work is offered as a service.

@@ -1,21 +1,223 @@
-MIT License
+Cryptographic Autonomy License Version 1.0 (CAL-1.0)
 
 Copyright (c) 2026 Josh Field
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This Source Code Form is subject to the terms of the Cryptographic
+Autonomy License, version 1.0 (the "License"). You may not use this
+file except in compliance with the License. You can obtain a copy of
+the License at:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+    https://opensource.org/licenses/CAL-1.0
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+The full text of the License follows.
+
+================================================================================
+
+Cryptographic Autonomy License v. 1.0
+
+1. Purpose
+
+This Cryptographic Autonomy License (the "License") is granted by the
+"Licensor" to a "Recipient" of the Work to allow the Recipient certain
+rights, as described below, while also ensuring that the Recipient
+preserves the same rights and certain capabilities of any third party
+"User" of the Work, as detailed below. This License is intended to embody
+the spirit and meaning of free and open source software, as described by
+the Free Software Definition published by the Free Software Foundation
+and the Open Source Definition published by the Open Source Initiative.
+
+2. Receiving a License
+
+2.1 Grant of License. Conditioned on compliance with Section 3, and
+subject to the limitations of Section 5, Licensor grants Recipient a
+non-exclusive, worldwide, royalty-free, sublicensable license to do the
+following:
+
+    a. Use the Work;
+    b. Modify the Work to create Derivative Works;
+    c. Distribute the Work or Derivative Works to third parties; and
+    d. Perform the Work publicly.
+
+2.2 Patent License. Licensor grants Recipient a non-exclusive, worldwide,
+royalty-free, sublicensable patent license under Licensed Patents to make,
+have made, use, offer to sell, sell, import, and otherwise transfer the
+Work.
+
+2.3 Sublicensing. Each time Recipient distributes the Work or a Derivative
+Work to a third party, the Licensor offers a License to the third party on
+the same terms and conditions as the License granted to Recipient.
+
+3. Providing a License
+
+3.1 Source Code Availability. If Recipient distributes the Work, in any
+form, to a third party, then Recipient must also make the Source Code Form
+of the Work available to the third party either:
+
+    a. By distributing a machine-readable copy of the Source Code Form
+       with the distribution; or
+    b. By providing, with the distribution, a written offer, valid for at
+       least three years, to provide the Source Code Form to anyone who
+       requests it.
+
+Recipient must also include with the distribution either a copy of this
+License or written notice of where a copy of this License may be obtained.
+
+3.2 Notices. Recipient must retain all copyright, patent, trademark, and
+attribution notices contained in the Source Code Form. Recipient must
+include a copy of this License with every copy of the Source Code Form
+that Recipient distributes.
+
+3.3 Maintaining User Autonomy. In addition to providing each Recipient
+the opportunity to have Access to the Source Code, Recipient cannot use
+the permissions given by this License to interfere with a User's
+opportunity to receive the same Access to the Source Code or to take any
+of the licensed actions described in Section 2.1. Therefore, when
+Recipient distributes the Work or makes the Work available to a User
+through any computing device or system, Recipient must additionally do
+all of the following:
+
+    a. Permit the User to take the actions described in Section 2.1 over
+       any network connection through which the User has access to the
+       Work or any Recipient-controlled remote computing system that
+       processes any User Data on behalf of the User.
+
+    b. Ensure that the User can obtain a copy of any of their User Data,
+       Personal Data, or Cryptographic Keys that the Recipient has the
+       ability to access in a usable, machine-readable format, and that
+       the User can also delete those copies of their User Data, Personal
+       Data, and Cryptographic Keys from any system or service that the
+       Recipient has the ability to access.
+
+    c. Notify the User of an opportunity to receive notice (at the User's
+       option) of any change to the Source Code Form of the Work that
+       might adversely affect their ability to make use of the rights
+       granted under this License.
+
+3.4 Inability to Comply. If Recipient is unable to comply with the
+requirements of Section 3.3, Recipient must:
+
+    a. Provide a written explanation of the reason for the inability to
+       comply; and
+    b. Not distribute or make the Work available to any User until
+       Recipient is able to comply.
+
+4. Trademarks
+
+This License does not grant any permission to use the trademarks or
+trade names of Licensor or its affiliates, except as required to comply
+with Section 3.2.
+
+5. Limitations and Termination of License
+
+5.1 Limitations. Nothing in this License is or should be interpreted as
+an agreement by Licensor to defend or indemnify any Recipient against any
+claim that any use of the Work by any party infringes any patent,
+copyright, or other intellectual property right.
+
+5.2 Termination Generally. If Recipient violates any of the terms or
+conditions of this License, Recipient's License will terminate
+automatically. However, if Recipient ceases violating the terms or
+conditions of this License within 30 days of becoming aware of the
+violation and remedies the violation if possible, then the Licensor's
+License to the Recipient will be reinstated.
+
+5.3 Patent Defense. The patent license granted in Section 2.2
+terminates if any party brings a claim against Licensor or any other
+party alleging that the Work or any Derivative Work infringes any patent
+unless the claim is in defense of or response to a similar claim
+previously made by the party against Licensor or any other party
+distributing or contributing to the Work.
+
+6. Disclaimer of Warranty and Limitation of Liability
+
+6.1 Warranty Disclaimer. THE WORK IS PROVIDED "AS IS," WITHOUT WARRANTY
+OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY
+WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+TITLE, OR NON-INFRINGEMENT. NEITHER THE LICENSOR NOR ANY OTHER PARTY
+WARRANTS THAT THE WORK IS FREE OF DEFECTS, AND ALL PARTIES DISCLAIM ANY
+RESPONSIBILITY TO PROVIDE ANY REPAIRS OR ANY OTHER REMEDY FOR ANY
+DEFECTS DISCOVERED AFTER ACCEPTANCE OF THE LICENSE.
+
+6.2 Limitation of Liability. EXCEPT FOR ANY LIABILITY THAT CANNOT BE
+EXCLUDED OR LIMITED UNDER APPLICABLE LAW, IN NO EVENT WILL ANY LICENSOR
+BE LIABLE TO RECIPIENT ON ANY LEGAL THEORY FOR ANY SPECIAL, INCIDENTAL,
+CONSEQUENTIAL, PUNITIVE, OR EXEMPLARY DAMAGES ARISING FROM THIS LICENSE
+OR THE USE OF THE WORK OR ANY DERIVATIVE WORK, EVEN IF LICENSOR HAS BEEN
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+7. Interpretation
+
+7.1 Conflicts and Severability. If any provision of this License is held
+to be unenforceable or invalid, the remaining provisions will remain in
+full force and effect. If any provision is interpreted in such a way as
+to be unenforceable or invalid, the provision will be reformed to the
+minimum extent necessary to make it enforceable or valid.
+
+7.2 Choice of Law and Venue. This License will be governed by and
+interpreted under the laws of the jurisdiction in which the Licensor is
+established, without giving effect to its principles of conflicts of law.
+
+8. Definitions
+
+"Access" to a particular form of code or content means (a) the substantial
+and timely opportunity to obtain a copy of such code or content; (b) any
+necessary and corresponding information about such code or content,
+including any necessary Cryptographic Keys; and (c) such information as is
+necessary to enable independent use of such code or content.
+
+"Cryptographic Keys" means any encryption keys, decryption keys,
+authentication keys, signing keys, or any combination thereof used to
+protect, secure, or authenticate the Work, User Data, Personal Data, or
+any communications, transactions, or operations involving the Work.
+
+"Derivative Work" means a work that is based upon, derived from, or
+incorporates the Work, in whole or in part, in any form, and includes,
+without limitation, all modifications, improvements, adaptations, or
+enhancements of the Work.
+
+"License" has the meaning given in Section 1.
+
+"Licensed Patents" means patent claims licensable by a Licensor that are
+necessarily infringed by the Work alone or by combinations of the Work
+with other works.
+
+"Licensor" means the party or parties offering the License, including any
+party that subsequently distributes a Derivative Work under the License.
+
+"Permission" means any consent, authorization, or license granted by
+Licensor under this License.
+
+"Personal Data" means any information relating to an identified or
+identifiable natural person, where an identifiable natural person is one
+who can be identified, directly or indirectly, by reference to an
+identifier such as a name, an identification number, location data, an
+online identifier, or to one or more factors specific to that natural
+person.
+
+"Recipient" means any party that has received a License under this
+License.
+
+"Source Code" means the form of a work preferred for making modifications,
+including any comments, configuration files, scripts used to control
+compilation and installation of an executable, or other equivalent
+information.
+
+"Source Code Form" means the Source Code of the Work or any Derivative
+Work.
+
+"User" means a party that has the right under this License or another
+applicable agreement to operate the Work on a device or system controlled
+by the User, whether the Work is run locally or remotely (such as over a
+network).
+
+"User Data" means any data that is an input to or an output from the Work,
+where the presence of the data is necessary for substantive
+functionality to be provided by the Work to the User, where the User has
+an existing ownership interest in such data (whether by virtue of being
+the source of the data or having an enforceable contractual or other
+legal right concerning such data), where such data includes Personal Data
+of the User, or where such data is otherwise specifically identified by
+the Recipient or the Licensor as User Data.
+
+"Work" means the software made available under this License, including the
+Source Code and any binaries or other executable forms thereof.
