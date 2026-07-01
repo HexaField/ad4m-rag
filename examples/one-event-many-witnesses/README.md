@@ -75,7 +75,7 @@ then killed, and its temp data dir is removed.
 ## How it's wired
 
 ```
-vite (LAN surface, :5173) ──proxy /api──► node server/index.ts (127.0.0.1, isolated)
+vite (LAN surface, :4321) ──proxy /api──► node server/index.ts (127.0.0.1, isolated)
         │                                          │
    src/ (SolidJS UI)                         server/graph.ts  ── composes ──►  @hexafield/ad4m-rag
                                                    │                              (real ingest + query + store)
