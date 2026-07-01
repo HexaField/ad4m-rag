@@ -270,7 +270,15 @@ export function createKnowledgeGraphStore(deps: KnowledgeGraphStoreDeps): Knowle
       if (links.length === 0) {
         throw new Error(`publishToPerspective: subject not found in local store: ${uri}`)
       }
-      await pushLinks(perspectiveUuid, links)
+      // Idempotent publish: only push links not already present in the target
+      // perspective. Without this, re-publishing the same subject duplicates
+      // every link (inflating link counts and multiplying assertedBy).
+      const linkKey = (source: string, predicate: string, target: string): string =>
+        `${source} ${predicate} ${target}`
+      const existing = await facade.queryAllLinks(perspectiveUuid)
+      const seen = new Set(existing.map((l) => linkKey(l.data.source, l.data.predicate, l.data.target)))
+      const fresh = links.filter((l) => !seen.has(linkKey(l.source, l.predicate ?? '', l.target)))
+      if (fresh.length > 0) await pushLinks(perspectiveUuid, fresh)
       deps.sqlite.recordPublication(uri, perspectiveUuid)
     },
     async unpublishFromPerspective(uri, perspectiveUuid) {

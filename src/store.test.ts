@@ -154,6 +154,17 @@ describe('KnowledgeGraphStore (mock-AD4M)', () => {
     expect(sqlite.listPublications(e.uri)).toEqual([SHARED])
   })
 
+  it('publishToPerspective is idempotent — re-publishing adds no duplicate links', async () => {
+    const e = makeEntity(entityUri('Person', 'Josh'), 'Josh')
+    await store.upsertEntity(e)
+    await store.publishToPerspective(e.uri, SHARED)
+    const afterFirst = mock.perspective(SHARED).length
+    expect(afterFirst).toBeGreaterThan(0)
+    // Second publish of the same subject must be a no-op on the wire.
+    await store.publishToPerspective(e.uri, SHARED)
+    expect(mock.perspective(SHARED).length).toBe(afterFirst)
+  })
+
   it('unpublishFromPerspective removes all subject links from the named perspective', async () => {
     const e = makeEntity(entityUri('Person', 'Josh'), 'Josh')
     await store.upsertEntity(e)

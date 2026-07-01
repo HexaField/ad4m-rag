@@ -115,6 +115,25 @@ describe('SqliteIndex', () => {
     expect(hits.map((h) => h.uri)).toEqual(['claim:1'])
   })
 
+  it('FTS accepts free text with FTS5 operator characters', () => {
+    const c: Claim = {
+      uri: 'claim:1',
+      about: 'entity:1',
+      statement: 'A fig tree was planted in the courtyard on Saturday morning.',
+      cells: [],
+      evidenceChunkIds: ['chunk:1'],
+      assertedBy: [{ did: 'did:a' }],
+      createdAt: 1
+    }
+    index.upsertClaim(c)
+    // Raw entity names / questions contain '-', '?', ':' etc. which are FTS5
+    // query operators; unsanitised they throw "no such column" / syntax errors.
+    expect(() => index.ftsSearchClaims('Courtyard fig-tree planting', 5)).not.toThrow()
+    expect(index.ftsSearchClaims('fig-tree', 5).map((h) => h.uri)).toEqual(['claim:1'])
+    expect(index.ftsSearchClaims('What happened on Saturday?', 5).map((h) => h.uri)).toEqual(['claim:1'])
+    expect(index.ftsSearchClaims('!!!', 5)).toEqual([])
+  })
+
   it('round-trips a claim with cell assignments', () => {
     const claimUriValue = 'claim:cells-1'
     const cells: CellAssignment[] = [

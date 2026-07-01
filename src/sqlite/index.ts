@@ -51,6 +51,18 @@ const parseIds = (raw: string): string[] => {
   }
 }
 
+// Turn arbitrary free text (entity names, user questions) into a safe FTS5
+// MATCH expression. Raw text is NOT valid query syntax — hyphens, colons,
+// quotes and '?' are all operators, so `fig-tree` throws "no such column:
+// tree" and `Saturday?` throws a syntax error. We tokenise on non-word
+// characters and OR each token as a quoted phrase, maximising recall (callers
+// filter the results further). Returns null when there is nothing to match on.
+const toFtsMatchQuery = (text: string): string | null => {
+  const tokens = text.match(/[\p{L}\p{N}]+/gu)
+  if (!tokens || tokens.length === 0) return null
+  return tokens.map((t) => `"${t}"`).join(' OR ')
+}
+
 export interface SqliteIndex {
   // ── Structural upserts ────────────────────────────────────────
   upsertEntity(entity: Entity): void
@@ -625,6 +637,8 @@ export function createSqliteIndex(opts: SqliteIndexOptions): SqliteIndex {
     },
 
     ftsSearchClaims(query, k, filter) {
+      const match = toFtsMatchQuery(query)
+      if (!match) return []
       const prov = provenanceClause('c.asserted_by', filter)
       const sql = `
         SELECT c.* FROM claims_fts f
@@ -633,7 +647,7 @@ export function createSqliteIndex(opts: SqliteIndexOptions): SqliteIndex {
         ORDER BY rank
         LIMIT ?
       `
-      const rows = db.prepare(sql).all(query, ...prov.bindings, k) as any[]
+      const rows = db.prepare(sql).all(match, ...prov.bindings, k) as any[]
       return rows.map(rowToClaim)
     },
 

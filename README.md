@@ -21,7 +21,7 @@ Most knowledge graphs are organisation-shaped: a single team owns the graph, dec
 
 ## Status
 
-**Working prototype.** The full design is in [PLAN.md](./PLAN.md). All 13 requirements are implemented; the 12-cell hexevent vocabulary is wired into every claim by default. 86 unit tests + 7 live integration tests against a real AD4M executor are green.
+**Working prototype.** The full design is in [PLAN.md](./PLAN.md). All 13 requirements are implemented; the 12-cell hexevent vocabulary is wired into every claim by default. 90 unit tests + 7 live integration tests against a real AD4M executor are green. A runnable end-to-end demo lives in [`examples/one-event-many-witnesses`](./examples/one-event-many-witnesses).
 
 The repo is being prototyped under [@hexafield](https://github.com/HexaField) while the architecture settles. The intent is to move it to [@coasys](https://github.com/coasys) once the design is proven.
 

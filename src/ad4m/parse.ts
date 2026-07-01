@@ -61,7 +61,11 @@ function groupBySource(links: LinkLike[]): Map<string, SubjectLinks> {
       out.set(source, bucket)
     }
     const arr = bucket.predicates.get(predicate) ?? []
-    arr.push(target)
+    // A perspective is a set of links: the same (source, predicate, target)
+    // triple may appear more than once (e.g. re-published subjects), but it
+    // carries no extra information. Dedupe so downstream set semantics —
+    // assertedBy DIDs, aliases, cell fillers — never double-count.
+    if (!arr.includes(target)) arr.push(target)
     bucket.predicates.set(predicate, arr)
   }
   return out

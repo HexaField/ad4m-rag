@@ -144,4 +144,56 @@ describe('AD4M serialise + parse round-trip', () => {
     expect(parsed.communities).toEqual([])
     expect(parsed.cellAssignments).toEqual([])
   })
+
+  it('deduplicates repeated links so multi-valued fields never double-count', () => {
+    // A perspective is a set: the same triple appearing twice (e.g. from a
+    // non-idempotent re-publish) must not inflate assertedBy or aliases.
+    const e: Entity = {
+      uri: 'entity:1',
+      type: 'Person',
+      name: 'Josh Field',
+      description: 'A human.',
+      aliases: ['hex', 'JF'],
+      assertedBy: [{ did: 'did:a', label: 'Alice' }, { did: 'did:b' }],
+      sourceChunkIds: ['chunk:1', 'chunk:2'],
+      createdAt: 100,
+      updatedAt: 200
+    }
+    const links = entityToLinks(e).map((l) => ({
+      data: { source: l.source, predicate: l.predicate ?? '', target: l.target }
+    }))
+    // Feed every link twice.
+    const parsed = parseLinks([...links, ...links] as any).entities
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0]).toEqual(e)
+  })
+
+  it('deduplicates repeated Claim cell + assertedBy links', () => {
+    const claimUriValue = 'claim:c-1'
+    const cells: CellAssignment[] = [
+      {
+        uri: cellAssignmentUri(claimUriValue, 'who·objective', 'Josh'),
+        claimUri: claimUriValue,
+        cell: 'who·objective',
+        filler: 'Josh'
+      }
+    ]
+    const c: Claim = {
+      uri: claimUriValue,
+      about: 'entity:1',
+      statement: 'Josh shipped a new module.',
+      cells,
+      evidenceChunkIds: ['chunk:1'],
+      assertedBy: [{ did: 'did:a' }, { did: 'did:b' }],
+      createdAt: 100
+    }
+    const links = claimToLinks(c).map((l) => ({
+      data: { source: l.source, predicate: l.predicate ?? '', target: l.target }
+    }))
+    const parsed = parseLinks([...links, ...links] as any)
+    expect(parsed.claims).toHaveLength(1)
+    expect(parsed.claims[0].assertedBy).toEqual(c.assertedBy)
+    expect(parsed.claims[0].cells).toHaveLength(1)
+    expect(parsed.cellAssignments).toHaveLength(1)
+  })
 })
