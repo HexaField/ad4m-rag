@@ -17,6 +17,26 @@ Most knowledge graphs are organisation-shaped: a single team owns the graph, dec
 - **Disagreement is first-class.** Conflicting claims coexist with their `assertedBy` sets. The query engine surfaces both in citations; the caller (or human) judges.
 - **Composable across communities.** The same query engine reads from any union of (local) + (subscribed neighbourhood perspectives). Knowledge commons without centralisation.
 
+## Architecture
+
+Two storage layers sit behind one `KnowledgeGraphStore`. Structural records — entities, relationships, claims, communities — are written **AD4M-first**: that perspective is the source of truth and carries provenance and P2P sharing. A local SQLite + sqlite-vec index mirrors them for fast vector and full-text search, keyed by AD4M URI. Ingest extracts the graph from text; query reads the index in `local` mode (vector seed → graph walk) or `global` mode (map-reduce over community summaries). An MCP tool factory exposes both over the same store.
+
+```mermaid
+flowchart TB
+    Text["Text"] -->|"chunk → extract (LLM) → identity merge"| Store["KnowledgeGraphStore"]
+    Comm["rebuildCommunities<br/>Leiden clustering + LLM summaries"] --> Store
+
+    Store -->|"write-first"| AD4M[("AD4M perspectives<br/>structural graph + provenance<br/>private + shared, P2P")]
+    Store -->|"mirror / index"| SQL[("SQLite + sqlite-vec<br/>embeddings + FTS<br/>keyed by AD4M URI")]
+    AD4M -.->|"reconcile shared"| Store
+
+    Query["Query<br/>auto / local / global"] -->|"read"| SQL
+    Query -->|"synthesise + cite provenance"| LLM["LLM"]
+
+    MCP["MCP tools"] --- Store
+    MCP --- Query
+```
+
 ## Status
 
 **Working prototype.** The full design is in [PLAN.md](./PLAN.md). All 13 requirements are implemented; 77 unit tests + 7 live integration tests against a real AD4M executor are green.
