@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createSqliteIndex, type SqliteIndex } from './index.js'
-import { cellAssignmentUri } from '../uri.js'
-import type { CellAssignment, Entity, Relationship, Claim, Community, Chunk } from '../types.js'
+import type { Entity, Relationship, Claim, Community, Chunk } from '../types.js'
 
 const DIM = 4
 
@@ -105,7 +104,6 @@ describe('SqliteIndex', () => {
       uri: 'claim:1',
       about: 'entity:1',
       statement: 'The sky is blue.',
-      cells: [],
       evidenceChunkIds: ['chunk:1'],
       assertedBy: [{ did: 'did:a' }],
       createdAt: 1
@@ -120,7 +118,6 @@ describe('SqliteIndex', () => {
       uri: 'claim:1',
       about: 'entity:1',
       statement: 'A fig tree was planted in the courtyard on Saturday morning.',
-      cells: [],
       evidenceChunkIds: ['chunk:1'],
       assertedBy: [{ did: 'did:a' }],
       createdAt: 1
@@ -132,150 +129,6 @@ describe('SqliteIndex', () => {
     expect(index.ftsSearchClaims('fig-tree', 5).map((h) => h.uri)).toEqual(['claim:1'])
     expect(index.ftsSearchClaims('What happened on Saturday?', 5).map((h) => h.uri)).toEqual(['claim:1'])
     expect(index.ftsSearchClaims('!!!', 5)).toEqual([])
-  })
-
-  it('round-trips a claim with cell assignments', () => {
-    const claimUriValue = 'claim:cells-1'
-    const cells: CellAssignment[] = [
-      {
-        uri: cellAssignmentUri(claimUriValue, 'who·objective', 'Josh'),
-        claimUri: claimUriValue,
-        cell: 'who·objective',
-        filler: 'Josh',
-        conceptIri: 'https://example.org/josh'
-      },
-      {
-        uri: cellAssignmentUri(claimUriValue, 'why·subjective', 'commitment to open-source'),
-        claimUri: claimUriValue,
-        cell: 'why·subjective',
-        filler: 'commitment to open-source',
-        source: 'PLAN.md'
-      }
-    ]
-    const claim: Claim = {
-      uri: claimUriValue,
-      about: 'entity:1',
-      statement: 'Josh shipped a new module.',
-      cells,
-      evidenceChunkIds: ['chunk:1'],
-      assertedBy: [{ did: 'did:a' }],
-      createdAt: 100
-    }
-    index.upsertClaim(claim)
-    const back = index.getClaim(claimUriValue)
-    expect(back).not.toBeNull()
-    expect(back!.cells).toHaveLength(2)
-    const byCell = new Map(back!.cells.map((c) => [c.cell, c]))
-    expect(byCell.get('who·objective')?.filler).toBe('Josh')
-    expect(byCell.get('who·objective')?.conceptIri).toBe('https://example.org/josh')
-    expect(byCell.get('why·subjective')?.source).toBe('PLAN.md')
-  })
-
-  it('replaces cells on subsequent upsert when the set changes', () => {
-    const claimUriValue = 'claim:cells-2'
-    const c1: Claim = {
-      uri: claimUriValue,
-      about: 'entity:1',
-      statement: 'x',
-      cells: [
-        {
-          uri: cellAssignmentUri(claimUriValue, 'who·objective', 'A'),
-          claimUri: claimUriValue,
-          cell: 'who·objective',
-          filler: 'A'
-        },
-        {
-          uri: cellAssignmentUri(claimUriValue, 'what·objective', 'B'),
-          claimUri: claimUriValue,
-          cell: 'what·objective',
-          filler: 'B'
-        }
-      ],
-      evidenceChunkIds: ['chunk:1'],
-      assertedBy: [{ did: 'did:a' }],
-      createdAt: 1
-    }
-    index.upsertClaim(c1)
-    expect(index.listCellAssignmentsByClaim(claimUriValue)).toHaveLength(2)
-    // Second upsert with a smaller set drops the missing cell.
-    index.upsertClaim({
-      ...c1,
-      cells: [
-        {
-          uri: cellAssignmentUri(claimUriValue, 'who·objective', 'A'),
-          claimUri: claimUriValue,
-          cell: 'who·objective',
-          filler: 'A'
-        }
-      ]
-    })
-    const after = index.listCellAssignmentsByClaim(claimUriValue)
-    expect(after).toHaveLength(1)
-    expect(after[0].cell).toBe('who·objective')
-  })
-
-  it('listClaimsByCell narrows by cell + filler substring', () => {
-    const c1: Claim = {
-      uri: 'claim:x',
-      about: 'entity:1',
-      statement: 'x',
-      cells: [
-        {
-          uri: cellAssignmentUri('claim:x', 'who·objective', 'Josh'),
-          claimUri: 'claim:x',
-          cell: 'who·objective',
-          filler: 'Josh'
-        }
-      ],
-      evidenceChunkIds: [],
-      assertedBy: [{ did: 'did:a' }],
-      createdAt: 1
-    }
-    const c2: Claim = {
-      uri: 'claim:y',
-      about: 'entity:2',
-      statement: 'y',
-      cells: [
-        {
-          uri: cellAssignmentUri('claim:y', 'who·objective', 'Alice'),
-          claimUri: 'claim:y',
-          cell: 'who·objective',
-          filler: 'Alice'
-        }
-      ],
-      evidenceChunkIds: [],
-      assertedBy: [{ did: 'did:a' }],
-      createdAt: 1
-    }
-    index.upsertClaim(c1)
-    index.upsertClaim(c2)
-    const matched = index.listClaimsByCell([{ cell: 'who·objective', fillerLike: 'Josh' }])
-    expect(matched.map((c) => c.uri)).toEqual(['claim:x'])
-  })
-
-  it('deleteOrphanedClaims removes cell rows and FTS shadow', () => {
-    const c: Claim = {
-      uri: 'claim:orphan',
-      about: 'entity:1',
-      statement: 'doomed',
-      cells: [
-        {
-          uri: cellAssignmentUri('claim:orphan', 'who·objective', 'X'),
-          claimUri: 'claim:orphan',
-          cell: 'who·objective',
-          filler: 'X'
-        }
-      ],
-      evidenceChunkIds: [],
-      assertedBy: [{ did: 'did:a' }],
-      createdAt: 1
-    }
-    index.upsertClaim(c)
-    expect(index.listCellAssignmentsByClaim('claim:orphan')).toHaveLength(1)
-    const removed = index.deleteOrphanedClaims()
-    expect(removed).toBe(1)
-    expect(index.getClaim('claim:orphan')).toBeNull()
-    expect(index.listCellAssignmentsByClaim('claim:orphan')).toHaveLength(0)
   })
 
   it('communities can be filtered by level', () => {

@@ -27,19 +27,15 @@ src/                library source
   ad4m/             AD4M serialise/parse + client facade + predicate URIs
   ingest/           chunker → extractor → merge pipeline
   query/            query engine (local/global), classifier
-  sqlite/           SQLite + sqlite-vec index (embeddings, FTS, cell assignments)
+  sqlite/           SQLite + sqlite-vec index (embeddings, FTS)
   store.ts          KnowledgeGraphStore — local index + AD4M publish/subscribe
   factory.ts        createAd4mRag — the one-call composition of all the above
 tests/integration/  live-executor harness + integration specs
-examples/           runnable demos (see examples/*/README.md)
-dist/               build output — examples import from here, so build first
+dist/               build output — tsc emits here (npm run build)
 ```
 
 ## Non-obvious conventions & gotchas
 
-- **Examples import the built library**, not `src/`. They resolve
-  `../../../dist/index.js`, so `npm run build` must run before an example will
-  pick up source changes. The demos' `predev` script does this automatically.
 - **Native TS execution.** Backends/harnesses run under Node's native TypeScript
   support (`node file.ts`, no loader). That path enforces `isolatedModules` +
   `verbatimModuleSyntax`: relative imports need explicit **`.ts`** extensions,
@@ -55,21 +51,21 @@ dist/               build output — examples import from here, so build first
 - **A perspective is a set of links.** The same `(source, predicate, target)`
   triple can legitimately appear more than once (e.g. a re-published subject),
   but carries no extra information. Two invariants keep multi-valued fields
-  (`assertedBy`, `aliases`, cell fillers) from double-counting:
+  (`assertedBy`, `aliases`) from double-counting:
   1. **Write side** — `store.ts` `publishToPerspective` is idempotent: it reads
      the target perspective and only pushes links not already present.
   2. **Read side** — `ad4m/parse.ts` `groupBySource` dedupes targets per
      predicate as a defensive backstop.
   Preserve both; either alone leaves a gap.
 - **Provenance is first-class.** Every entity/relationship/claim carries an
-  `assertedBy: { did, label? }[]`. Identity merge (content hash of the record,
-  *excluding* cells) unions the `assertedBy` sets of duplicate assertions. Never
-  fold provenance into the identity hash.
-- **12-cell hexevent vocabulary.** Every claim carries a 5W1H ×
-  objective/subjective decomposition from
-  [@hexafield/hexevent](https://github.com/HexaField/hexevent). `CellId` strings
-  use a middot (`who·objective`, U+00B7) — match on the exact codepoint; don't
-  substitute an ASCII `.`.
+  `assertedBy: { did, label? }[]`. Identity merge (content hash of the record)
+  unions the `assertedBy` sets of duplicate assertions. Never fold provenance
+  into the identity hash.
+- **Claims are ontology-free.** A `Claim` is a freeform `{ about, statement,
+  evidenceChunkIds, assertedBy, createdAt }` record — the library imposes no
+  taxonomy or decomposition on it. Any structured schema over claims (5W1H,
+  domain ontologies, and the like) is the caller's concern, layered on top.
+  Keep the core ontology-agnostic.
 
 ## Provenance / status
 

@@ -11,14 +11,12 @@
 // no-op) and is responsible for identity merging.
 
 import { mergeClaim, mergeEntity, mergeRelationship } from '../identity.js'
-import { canonicalEntityKey, cellAssignmentUri, chunkUri, claimUri, entityUri, relationshipUri } from '../uri.js'
+import { canonicalEntityKey, chunkUri, claimUri, entityUri, relationshipUri } from '../uri.js'
 import type {
   AgentRef,
-  CellAssignment,
   Chunk,
   Claim,
   Entity,
-  ExtractedCellAssignment,
   ExtractionResult,
   Relationship
 } from '../types.js'
@@ -299,12 +297,10 @@ async function applyExtraction(
       entitiesUpserted++
     }
     const uri = claimUri(aboutUri, c.statement)
-    const cells = materialiseCells(uri, c.cells)
     const incoming: Omit<Claim, 'createdAt'> = {
       uri,
       about: aboutUri,
       statement: c.statement,
-      cells,
       evidenceChunkIds: [chunkId],
       assertedBy: [assertedBy]
     }
@@ -315,32 +311,5 @@ async function applyExtraction(
   }
 
   return { entitiesUpserted, relsUpserted, claimsUpserted }
-}
-
-/**
- * Promote `ExtractedCellAssignment` entries (no URI yet, no claim back-ref)
- * into `CellAssignment` records keyed off the parent claim's URI. Duplicate
- * (cell, normalised filler) pairs collapse via the URI hash.
- */
-function materialiseCells(
-  claimUriValue: string,
-  cells: ExtractedCellAssignment[] | undefined
-): CellAssignment[] {
-  const byUri = new Map<string, CellAssignment>()
-  for (const c of cells ?? []) {
-    const uri = cellAssignmentUri(claimUriValue, c.cell, c.filler)
-    // Last write wins on conceptIri / source — the extractor produces one row
-    // per LLM-emitted cell, and identical (claim, cell, filler) records
-    // should overwrite each other rather than create duplicates.
-    byUri.set(uri, {
-      uri,
-      claimUri: claimUriValue,
-      cell: c.cell,
-      filler: c.filler,
-      conceptIri: c.conceptIri,
-      source: c.source
-    })
-  }
-  return [...byUri.values()]
 }
 

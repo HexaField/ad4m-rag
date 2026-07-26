@@ -4,15 +4,10 @@
 // pivot on `predicate`. Anything that doesn't fit the schema is silently
 // dropped — incoming data from peers may be partial.
 
-import { CELL_CLASS_BY_IRI } from '@hexafield/hexevent'
-import type { CellAssignment, Claim, Community, Entity, Relationship } from '../types.js'
+import type { Claim, Community, Entity, Relationship } from '../types.js'
 import {
   PRED_ALIAS,
   PRED_ASSERTED_BY,
-  PRED_CELL_CONCEPT_IRI,
-  PRED_CELL_FILLER,
-  PRED_CELL_OF_CLAIM,
-  PRED_CELL_SOURCE,
   PRED_CLAIM_ABOUT,
   PRED_CLAIM_STATEMENT,
   PRED_COMMUNITY_LEVEL,
@@ -126,11 +121,7 @@ function parseRelationship(uri: string, bucket: SubjectLinks): Relationship | nu
   return { uri, source, predicate, target, description, weight, assertedBy, sourceChunkIds, createdAt }
 }
 
-function parseClaim(
-  uri: string,
-  bucket: SubjectLinks,
-  cellsByClaim: Map<string, CellAssignment[]>
-): Claim | null {
+function parseClaim(uri: string, bucket: SubjectLinks): Claim | null {
   const about = firstOf(bucket, PRED_CLAIM_ABOUT)
   const statement = decodeStringTarget(firstOf(bucket, PRED_CLAIM_STATEMENT) ?? '')
   if (!about || !statement) return null
@@ -145,40 +136,12 @@ function parseClaim(
     uri,
     about,
     statement,
-    cells: cellsByClaim.get(uri) ?? [],
     evidenceChunkIds,
     assertedBy,
     supports: supports.length ? supports : undefined,
     contradicts: contradicts.length ? contradicts : undefined,
     createdAt
   }
-}
-
-/**
- * A cell-assignment subject. Detected by its `type` triple pointing at
- * one of the twelve hexevent cell IRIs. Returns the parsed assignment
- * and `null` if the bucket doesn't have the minimum required shape.
- */
-function parseCellAssignment(
-  uri: string,
-  bucket: SubjectLinks
-): CellAssignment | null {
-  const typeIris = allOf(bucket, PRED_TYPE)
-  let cellId: CellAssignment['cell'] | undefined
-  for (const iri of typeIris) {
-    const cls = CELL_CLASS_BY_IRI[iri]
-    if (cls) {
-      cellId = cls.cellId
-      break
-    }
-  }
-  if (!cellId) return null
-  const claimUri = firstOf(bucket, PRED_CELL_OF_CLAIM)
-  const filler = decodeStringTarget(firstOf(bucket, PRED_CELL_FILLER) ?? '')
-  if (!claimUri || filler === null || filler === undefined || filler === '') return null
-  const conceptIri = decodeStringTarget(firstOf(bucket, PRED_CELL_CONCEPT_IRI) ?? '') ?? undefined
-  const source = decodeStringTarget(firstOf(bucket, PRED_CELL_SOURCE) ?? '') ?? undefined
-  return { uri, claimUri, cell: cellId, filler, conceptIri, source }
 }
 
 function parseCommunity(uri: string, bucket: SubjectLinks): Community | null {
@@ -197,25 +160,12 @@ export function parseLinks(links: LinkLike[]): {
   relationships: Relationship[]
   claims: Claim[]
   communities: Community[]
-  cellAssignments: CellAssignment[]
 } {
   const grouped = groupBySource(links)
   const entities: Entity[] = []
   const relationships: Relationship[] = []
   const claims: Claim[] = []
   const communities: Community[] = []
-  const cellAssignments: CellAssignment[] = []
-  // Cells must be parsed before claims so claim hydration can include them.
-  const cellsByClaim = new Map<string, CellAssignment[]>()
-  for (const [uri, bucket] of grouped) {
-    const c = parseCellAssignment(uri, bucket)
-    if (c) {
-      cellAssignments.push(c)
-      const arr = cellsByClaim.get(c.claimUri) ?? []
-      arr.push(c)
-      cellsByClaim.set(c.claimUri, arr)
-    }
-  }
   for (const [uri, bucket] of grouped) {
     if (isType(bucket, TYPE_ENTITY)) {
       const e = parseEntity(uri, bucket)
@@ -224,12 +174,12 @@ export function parseLinks(links: LinkLike[]): {
       const r = parseRelationship(uri, bucket)
       if (r) relationships.push(r)
     } else if (isType(bucket, TYPE_CLAIM)) {
-      const c = parseClaim(uri, bucket, cellsByClaim)
+      const c = parseClaim(uri, bucket)
       if (c) claims.push(c)
     } else if (isType(bucket, TYPE_COMMUNITY)) {
       const c = parseCommunity(uri, bucket)
       if (c) communities.push(c)
     }
   }
-  return { entities, relationships, claims, communities, cellAssignments }
+  return { entities, relationships, claims, communities }
 }

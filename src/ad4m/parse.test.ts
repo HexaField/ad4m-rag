@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { parseLinks } from './parse.js'
 import { entityToLinks, relationshipToLinks, claimToLinks, communityToLinks } from './serialise.js'
-import { cellAssignmentUri } from '../uri.js'
-import type { CellAssignment, Claim, Community, Entity, Relationship } from '../types.js'
+import type { Claim, Community, Entity, Relationship } from '../types.js'
 
 describe('AD4M serialise + parse round-trip', () => {
   it('round-trips an Entity fully', () => {
@@ -53,12 +52,11 @@ describe('AD4M serialise + parse round-trip', () => {
     expect(parsed[0]).toEqual(r)
   })
 
-  it('round-trips a Claim (no cells)', () => {
+  it('round-trips a Claim', () => {
     const c: Claim = {
       uri: 'claim:1',
       about: 'entity:1',
       statement: 'Sovereign uses an event bus.',
-      cells: [],
       evidenceChunkIds: ['chunk:1', 'chunk:2'],
       assertedBy: [{ did: 'did:a' }],
       supports: ['claim:99'],
@@ -69,54 +67,6 @@ describe('AD4M serialise + parse round-trip', () => {
     const parsed = parseLinks(links as any).claims
     expect(parsed).toHaveLength(1)
     expect(parsed[0]).toEqual(c)
-  })
-
-  it('round-trips a Claim with its 12-cell decomposition', () => {
-    const claimUriValue = 'claim:c-1'
-    const cells: CellAssignment[] = [
-      {
-        uri: cellAssignmentUri(claimUriValue, 'who·objective', 'Josh'),
-        claimUri: claimUriValue,
-        cell: 'who·objective',
-        filler: 'Josh',
-        conceptIri: 'https://example.org/josh'
-      },
-      {
-        uri: cellAssignmentUri(claimUriValue, 'what·objective', 'shipped a new module'),
-        claimUri: claimUriValue,
-        cell: 'what·objective',
-        filler: 'shipped a new module'
-      },
-      {
-        uri: cellAssignmentUri(claimUriValue, 'why·subjective', 'commitment to open-source'),
-        claimUri: claimUriValue,
-        cell: 'why·subjective',
-        filler: 'commitment to open-source',
-        source: 'PLAN.md'
-      }
-    ]
-    const c: Claim = {
-      uri: claimUriValue,
-      about: 'entity:1',
-      statement: 'Josh shipped a new module.',
-      cells,
-      evidenceChunkIds: ['chunk:1'],
-      assertedBy: [{ did: 'did:a' }],
-      createdAt: 100
-    }
-    const links = claimToLinks(c).map((l) => ({
-      data: { source: l.source, predicate: l.predicate ?? '', target: l.target }
-    }))
-    const parsed = parseLinks(links as any)
-    expect(parsed.claims).toHaveLength(1)
-    const back = parsed.claims[0]
-    expect(back.cells).toHaveLength(3)
-    // CellAssignment ordering is by parse iteration order; compare as a set.
-    const sortByCell = (arr: CellAssignment[]) =>
-      [...arr].sort((a, b) => a.cell.localeCompare(b.cell))
-    expect(sortByCell(back.cells)).toEqual(sortByCell(cells))
-    // Sibling array also surfaces the assignments.
-    expect(parsed.cellAssignments).toHaveLength(3)
   })
 
   it('round-trips a Community', () => {
@@ -142,7 +92,6 @@ describe('AD4M serialise + parse round-trip', () => {
     expect(parsed.relationships).toEqual([])
     expect(parsed.claims).toEqual([])
     expect(parsed.communities).toEqual([])
-    expect(parsed.cellAssignments).toEqual([])
   })
 
   it('deduplicates repeated links so multi-valued fields never double-count', () => {
@@ -168,21 +117,12 @@ describe('AD4M serialise + parse round-trip', () => {
     expect(parsed[0]).toEqual(e)
   })
 
-  it('deduplicates repeated Claim cell + assertedBy links', () => {
+  it('deduplicates repeated Claim assertedBy links', () => {
     const claimUriValue = 'claim:c-1'
-    const cells: CellAssignment[] = [
-      {
-        uri: cellAssignmentUri(claimUriValue, 'who·objective', 'Josh'),
-        claimUri: claimUriValue,
-        cell: 'who·objective',
-        filler: 'Josh'
-      }
-    ]
     const c: Claim = {
       uri: claimUriValue,
       about: 'entity:1',
       statement: 'Josh shipped a new module.',
-      cells,
       evidenceChunkIds: ['chunk:1'],
       assertedBy: [{ did: 'did:a' }, { did: 'did:b' }],
       createdAt: 100
@@ -193,7 +133,5 @@ describe('AD4M serialise + parse round-trip', () => {
     const parsed = parseLinks([...links, ...links] as any)
     expect(parsed.claims).toHaveLength(1)
     expect(parsed.claims[0].assertedBy).toEqual(c.assertedBy)
-    expect(parsed.claims[0].cells).toHaveLength(1)
-    expect(parsed.cellAssignments).toHaveLength(1)
   })
 })

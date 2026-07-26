@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { mergeAgents, mergeCells, mergeClaim, mergeEntity, mergeIds, mergeRelationship } from './identity.js'
-import { cellAssignmentUri } from './uri.js'
-import type { CellAssignment, Claim, Entity, Relationship } from './types.js'
+import { mergeAgents, mergeClaim, mergeEntity, mergeIds, mergeRelationship } from './identity.js'
+import type { Claim, Entity, Relationship } from './types.js'
 
 describe('mergeAgents', () => {
   it('deduplicates by DID and preserves order', () => {
@@ -83,7 +82,6 @@ describe('mergeClaim', () => {
     uri: 'claim:1',
     about: 'entity:1',
     statement: 'x',
-    cells: [],
     evidenceChunkIds: ['chunk:1'],
     assertedBy: [{ did: 'did:a' }],
     createdAt: 100
@@ -99,32 +97,5 @@ describe('mergeClaim', () => {
     )
     expect(merged.supports).toEqual(['claim:2', 'claim:4'])
     expect(merged.contradicts).toEqual(['claim:3'])
-  })
-
-  it('unions cells across reassertions, keeping the canonical filler per uri', () => {
-    const u1 = cellAssignmentUri('claim:1', 'who·objective', 'Josh')
-    const u2 = cellAssignmentUri('claim:1', 'why·subjective', 'commitment')
-    const u3 = cellAssignmentUri('claim:1', 'when·objective', '2026-07-01')
-    const a: CellAssignment[] = [
-      { uri: u1, claimUri: 'claim:1', cell: 'who·objective', filler: 'Josh' },
-      { uri: u2, claimUri: 'claim:1', cell: 'why·subjective', filler: 'commitment' }
-    ]
-    const b: CellAssignment[] = [
-      { uri: u1, claimUri: 'claim:1', cell: 'who·objective', filler: 'Josh', conceptIri: 'https://x' },
-      { uri: u3, claimUri: 'claim:1', cell: 'when·objective', filler: '2026-07-01' }
-    ]
-    const merged = mergeCells(a, b)
-    expect(merged.map((c) => c.uri).sort()).toEqual([u1, u2, u3].sort())
-    expect(merged.find((c) => c.uri === u1)?.conceptIri).toBe('https://x')
-  })
-
-  it('mergeClaim merges cells', () => {
-    const u1 = cellAssignmentUri('claim:1', 'who·objective', 'Josh')
-    const u2 = cellAssignmentUri('claim:1', 'why·subjective', 'commitment')
-    const m = mergeClaim(
-      { ...base, cells: [{ uri: u1, claimUri: 'claim:1', cell: 'who·objective', filler: 'Josh' }] },
-      { ...base, cells: [{ uri: u2, claimUri: 'claim:1', cell: 'why·subjective', filler: 'commitment' }] }
-    )
-    expect(m.cells).toHaveLength(2)
   })
 })

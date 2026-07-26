@@ -1,36 +1,7 @@
 // Core data model. See PLAN.md.
 
-import type { CellId } from '@hexafield/hexevent'
-
 export type EntityType = string
 export type RelationType = string
-
-/**
- * One filled cell of the 12-cell 5W1H × subjective/objective ontology.
- *
- * Each cell belongs to a Claim and decomposes a single aspect of the
- * claim into a typed filler. Per the underlying metaphysics, a Claim
- * with some cells empty isn't using a partial ontology — it's reporting
- * partial information, and the empty cells are an explicit statement of
- * what hasn't been observed.
- *
- * See `@hexafield/hexevent` for the cell vocabulary, the metaphysical
- * grounding, and the per-cell AD4M Subject classes used on the wire.
- */
-export interface CellAssignment {
-  /** Content-hashed cell-assignment URI: `cellassignment:<sha256(claim|cellId|filler)>`. */
-  uri: string
-  /** URI of the Claim this assignment belongs to. */
-  claimUri: string
-  /** The cell this assignment populates — e.g. 'who·objective'. */
-  cell: CellId
-  /** The value being asserted for that cell. */
-  filler: string
-  /** Optional IRI of a typed concept the filler resolves to. */
-  conceptIri?: string
-  /** Optional provenance hint (free-form string). */
-  source?: string
-}
 
 /** Reference to an agent (DID) that asserted something. */
 export interface AgentRef {
@@ -66,19 +37,11 @@ export interface Relationship {
   createdAt: number
 }
 
-/**
- * Factual statement about an entity.
- *
- * Every claim carries a `cells` array decomposing its propositional
- * content across the twelve 5W1H × subjective/objective cells. Partial
- * population is the norm — the empty cells are themselves informative.
- * The `statement` string remains the human-readable summary.
- */
+/** Factual statement about an entity. */
 export interface Claim {
   uri: string
   about: string
   statement: string
-  cells: CellAssignment[]
   evidenceChunkIds: string[]
   assertedBy: AgentRef[]
   supports?: string[]
@@ -153,19 +116,9 @@ export interface ExtractedRelationship {
   weight: number
 }
 
-/** Raw cell assignment produced by the extractor before identity-hashing. */
-export interface ExtractedCellAssignment {
-  cell: CellId
-  filler: string
-  conceptIri?: string
-  source?: string
-}
-
 export interface ExtractedClaim {
   about: { type: EntityType; name: string }
   statement: string
-  /** Per-cell decomposition of the claim. May be empty. */
-  cells: ExtractedCellAssignment[]
 }
 
 export interface ExtractionResult {

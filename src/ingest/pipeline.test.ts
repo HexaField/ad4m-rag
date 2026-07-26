@@ -44,37 +44,9 @@ function makeExtractor(): Extractor {
           : []
       const claims =
         names.length > 0
-          ? [
-              {
-                about: { type: 'Person', name: names[0] },
-                statement: `${names[0]} appears in the text.`,
-                cells: []
-              }
-            ]
+          ? [{ about: { type: 'Person', name: names[0] }, statement: `${names[0]} appears in the text.` }]
           : []
       return { entities, relationships, claims }
-    }
-  }
-}
-
-function makeCellAwareExtractor(): Extractor {
-  return {
-    async extract(passage: string) {
-      const names = [...new Set(passage.match(/\b[A-Z][a-z]+\b/g) ?? [])]
-      const entities = names.map((n) => ({ type: 'Person', name: n, description: '' }))
-      if (names.length === 0) return { entities: [], relationships: [], claims: [] }
-      const claims = [
-        {
-          about: { type: 'Person', name: names[0] },
-          statement: `${names[0]} shipped something.`,
-          cells: [
-            { cell: 'who·objective' as const, filler: names[0] },
-            { cell: 'what·objective' as const, filler: 'shipped something' },
-            { cell: 'why·subjective' as const, filler: 'momentum', source: passage.slice(0, 16) }
-          ]
-        }
-      ]
-      return { entities, relationships: [], claims }
     }
   }
 }
@@ -151,43 +123,6 @@ describe('ingest pipeline', () => {
     })
     await ingest.retract('doc-A')
     expect(sqlite.allEntityUris()).toEqual([])
-  })
-
-  it('ingests cell decompositions and round-trips them via the sqlite index', async () => {
-    const sqlite = createSqliteIndex({ path: ':memory:', embeddingDimension: DIM })
-    const cache = createIngestCache(sqlite)
-    const ingest = createIngestApi({
-      sqlite,
-      embeddings: makeEmbeddings(),
-      extractor: makeCellAwareExtractor(),
-      cache
-    })
-    await ingest.append({
-      documentId: 'doc-cells',
-      text: 'Josh worked through the night.',
-      assertedBy: { did: 'did:test:a' }
-    })
-    const joshUri = sqlite.allEntityUris().find((u) => sqlite.getEntity(u)?.name === 'Josh')!
-    const matched = sqlite.listClaimsByCell([
-      { cell: 'who·objective', fillerLike: 'Josh' }
-    ])
-    expect(matched.length).toBeGreaterThanOrEqual(1)
-    const c = matched[0]
-    expect(c.about).toBe(joshUri)
-    expect(c.cells.map((x) => x.cell).sort()).toEqual([
-      'what·objective',
-      'who·objective',
-      'why·subjective'
-    ])
-    // listClaimsByCell with two conjunctive terms narrows further.
-    const narrow = sqlite.listClaimsByCell([
-      { cell: 'who·objective', fillerLike: 'Josh' },
-      { cell: 'why·subjective', fillerLike: 'momentum' }
-    ])
-    expect(narrow.length).toBe(1)
-    // Wrong filler eliminates everything.
-    const empty = sqlite.listClaimsByCell([{ cell: 'who·objective', fillerLike: 'Alice' }])
-    expect(empty.length).toBe(0)
   })
 
   it('accumulates assertedBy across multiple agents asserting the same entity', async () => {

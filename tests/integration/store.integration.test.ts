@@ -123,7 +123,6 @@ RUN('KnowledgeGraphStore (live AD4M executor)', () => {
       uri: claimUri(a.uri, 'Sovereign uses an event bus.'),
       about: a.uri,
       statement: 'Sovereign uses an event bus.',
-      cells: [],
       evidenceChunkIds: ['chunk:1'],
       assertedBy: [{ did: 'did:test:a' }],
       createdAt: 1

@@ -3,7 +3,7 @@
 // source chunks — the records must collapse into a single canonical
 // record with accumulated `assertedBy` and `sourceChunkIds`.
 
-import type { AgentRef, CellAssignment, Claim, Entity, Relationship } from './types.js'
+import type { AgentRef, Claim, Entity, Relationship } from './types.js'
 
 /** Append `b` to `a`, deduplicating by DID. The resulting array preserves insertion order. */
 export function mergeAgents(a: AgentRef[], b: AgentRef[]): AgentRef[] {
@@ -78,36 +78,10 @@ export function mergeClaim(existing: Claim, incoming: Omit<Claim, 'createdAt'>):
     uri: existing.uri,
     about: existing.about,
     statement: existing.statement,
-    cells: mergeCells(existing.cells, incoming.cells),
     evidenceChunkIds: mergeIds(existing.evidenceChunkIds, incoming.evidenceChunkIds),
     assertedBy: mergeAgents(existing.assertedBy, incoming.assertedBy),
     supports: mergeIds(existing.supports ?? [], incoming.supports ?? []),
     contradicts: mergeIds(existing.contradicts ?? [], incoming.contradicts ?? []),
     createdAt: existing.createdAt
   }
-}
-
-/**
- * Set-union of cell assignments by `uri`. The URI is content-hashed over
- * (claim, cell, normalised filler), so two assignments with the same URI
- * carry the same filler in the same cell of the same claim. We keep the
- * existing record's metadata (conceptIri / source) when the incoming one
- * doesn't override them, mirroring the entity-description rule.
- */
-export function mergeCells(a: CellAssignment[], b: CellAssignment[]): CellAssignment[] {
-  const byUri = new Map<string, CellAssignment>()
-  for (const c of a) byUri.set(c.uri, c)
-  for (const c of b) {
-    const prev = byUri.get(c.uri)
-    if (!prev) {
-      byUri.set(c.uri, c)
-    } else {
-      byUri.set(c.uri, {
-        ...prev,
-        conceptIri: c.conceptIri ?? prev.conceptIri,
-        source: c.source ?? prev.source
-      })
-    }
-  }
-  return [...byUri.values()]
 }
